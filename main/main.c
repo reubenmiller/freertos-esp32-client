@@ -40,8 +40,6 @@
 #define CONFIG_MQTT_HOST "mqtt_host"
 #define CONFIG_MQTT_PORT "mqtt_port"
 
-#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
-
 static const char *TAG = "TEDGE";
 char APPLICATION_NAME[] = "freertos-esp32-tedge";
 char APPLICATION_VERSION[] = "1.1.0";
@@ -433,10 +431,11 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             }
             else if (op_type == TEDGE_COMMAND_FIRMWARE_UPDATE && op_status == TEDGE_COMMAND_STATUS_EXECUTING)
             {
-                ESP_LOGI(TAG, "Resuming command");
-                set_current_command(&command, event, op_type, op_status, root);
-                tedge_command_print(&command);
-                root = NULL;
+                // TODO: How to continue firmware operation? It would be better to resume from the OTA state rather than MQTT
+                // ESP_LOGI(TAG, "Resuming command");
+                // set_current_command(&command, event, op_type, op_status, root);
+                // tedge_command_print(&command);
+                // root = NULL;
             }
         }
 
