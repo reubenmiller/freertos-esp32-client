@@ -44,7 +44,7 @@
 
 static const char *TAG = "TEDGE";
 char APPLICATION_NAME[] = "freertos-esp32-tedge";
-char APPLICATION_VERSION[] = "1.1.1";
+char APPLICATION_VERSION[] = "1.1.0";
 
 //
 // Discover settings
@@ -118,7 +118,8 @@ int publish_mqtt_json(esp_mqtt_client_handle_t client, const char *topic, cJSON 
     return msg_id;
 }
 
-void start_ota_update(void) {
+void start_ota_update(void)
+{
     // xTaskCreate(&advanced_ota_example_task, "advanced_ota_example_task", 1024 * 8, NULL, 5, NULL);
 }
 
@@ -129,6 +130,31 @@ void build_mqtt_topic(char *dst, char *topic)
 {
     strcat(dst, TOPIC_ID);
     strcat(dst, topic);
+}
+
+esp_err_t do_firmware_upgrade(char *url)
+{
+    ESP_LOGI(TAG, "Starting OTA update. url=%s", url);
+    esp_http_client_config_t config = {
+        .url = url,
+        .skip_cert_common_name_check = true,
+        .transport_type = HTTP_TRANSPORT_OVER_TCP,
+        // .cert_pem = (char *)server_cert_pem_start,
+    };
+    esp_https_ota_config_t ota_config = {
+        .http_config = &config,
+    };
+    esp_err_t ret = esp_https_ota(&ota_config);
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI(TAG, "Firmware downloaded successfully. Restarting now");
+        esp_restart();
+    }
+    else
+    {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 /*
@@ -597,9 +623,19 @@ static void mqtt_app_start(void)
                 break;
 
             case TEDGE_COMMAND_STATUS_EXECUTING:
-                tedge_command_set_failed(command.payload, "Firmware update is not supported");
+                esp_err_t err = do_firmware_upgrade(cJSON_GetObjectItem(command.payload, "remoteUrl")->valuestring);
+
+                if (err == ESP_OK)
+                {
+                    tedge_command_set_status(command.payload, "successful");
+                    command.status = TEDGE_COMMAND_STATUS_SUCCESSFUL;
+                }
+                else
+                {
+                    tedge_command_set_failed(command.payload, "Firmware update is not supported");
+                    command.status = TEDGE_COMMAND_STATUS_FAILED;
+                }
                 publish_mqtt_json(client, command.topic, command.payload, 0, 1, 1);
-                command.status = TEDGE_COMMAND_STATUS_FAILED;
                 break;
 
             default:
@@ -620,7 +656,8 @@ void app_main(void)
 {
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         // 1.OTA app partition table has a smaller NVS partition size than the non-OTA
         // partition table. This size mismatch may cause NVS initialization to fail.
         // 2.NVS partition contains data in new format and cannot be recognized by this version of code.
@@ -628,7 +665,7 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK( err );
+    ESP_ERROR_CHECK(err);
 
     ESP_LOGI(TAG, "Startup..");
     ESP_LOGI(TAG, "Free memory: %d bytes", esp_get_free_heap_size());
@@ -663,11 +700,16 @@ void app_main(void)
      */
     const esp_partition_t *running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state;
-    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK) {
-        if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
-            if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
+    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
+    {
+        if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
+        {
+            if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK)
+            {
                 ESP_LOGI(TAG, "App is valid, rollback cancelled successfully");
-            } else {
+            }
+            else
+            {
                 ESP_LOGE(TAG, "Failed to cancel rollback");
             }
         }
