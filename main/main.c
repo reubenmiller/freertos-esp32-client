@@ -116,11 +116,6 @@ int publish_mqtt_json(esp_mqtt_client_handle_t client, const char *topic, cJSON 
     return msg_id;
 }
 
-void start_ota_update(void)
-{
-    // xTaskCreate(&advanced_ota_example_task, "advanced_ota_example_task", 1024 * 8, NULL, 5, NULL);
-}
-
 /*
     Build mqtt topic using the device's topic identifier and the give partial topic
 */
